@@ -27,7 +27,7 @@ def convert_float(x):
 
 
 def extract_features(record):
-    features_index = [3, 4, 5, 14, 15, 16, 25]
+    features_index = [8, 9, 10, 15, 16, 17, 23]
     features = [convert_float(record[x]) for x in features_index]
     return np.asarray(features)
 
@@ -42,8 +42,8 @@ def prepare_data(sc):
     print (lines.first())
     print("共計：" + str(lines.count()) + "筆")
     labelpointRDD = lines.map(lambda r: LabeledPoint(extract_label(r), extract_features(r)))
-    (trainData, validationData,
-     testData) = labelpointRDD.randomSplit([8, 1, 1])
+    print labelpointRDD.first()
+    (trainData, validationData,testData) = labelpointRDD.randomSplit([8, 1, 1])
     print("將資料分trainData:" + str(trainData.count()) +
           "validationData:" + str(validationData.count()) +
           "testData:" + str(testData.count()))
@@ -64,7 +64,7 @@ def CreateSparkContext():
 
 
 def trainEvaluateModel(trainData):
-    model = LogisticRegressionWithLBFGS.train(trainData)
+    model = LogisticRegressionWithLBFGS.train(trainData,intercept = True)
     return model
 
 
@@ -95,7 +95,7 @@ def predictData(sc, model):
 
     # 把預測結果寫出來
     f = open('workfile', 'w')
-    for lp in labelpointRDD.take(10000):
+    for lp in labelpointRDD.take(499999):
         predict = int(model.predict(lp.features))
         dataDesc = "  " + str(predict) + " "
         f.write(dataDesc)
@@ -111,4 +111,6 @@ if __name__ == "__main__":
     data = sc.textFile("/Users/yangminglin/data/xaa.csv")
     model = trainEvaluateModel(trainData)
     evaluateModel(model, testData)
+    model.clearThreshold()
+    print(model.intercept)
     predictData(sc, model)
