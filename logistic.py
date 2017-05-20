@@ -8,6 +8,8 @@ from pyspark.mllib.classification import LogisticRegressionWithLBFGS, LogisticRe
 from pyspark.mllib.tree import DecisionTree
 from pyspark.mllib.regression import LabeledPoint
 from pyspark.mllib.evaluation import RegressionMetrics
+from pyspark.mllib.evaluation import BinaryClassificationMetrics
+from pyspark.mllib.util import MLUtils
 
 
 def SetLogger(sc):
@@ -16,6 +18,12 @@ def SetLogger(sc):
     logger.LogManager.getLogger("akka").setLevel(logger.Level.ERROR)
     logger.LogManager.getRootLogger().setLevel(logger.Level.ERROR)
 
+def SetPath(sc):
+    global Path
+    if sc.master[0:5]=="local" :
+        Path="/Users/yangminglin/data/"
+    else:   
+        Path="hdfs://master:9000/data/"
 
 def extract_label(record):
     label = record[-1]
@@ -27,7 +35,8 @@ def convert_float(x):
 
 
 def extract_features(record):
-    features_index = [8, 9, 10, 15, 16, 17, 23]
+    index = np.arange(51)
+    features_index = index[2:51]
     features = [convert_float(record[x]) for x in features_index]
     return np.asarray(features)
 
@@ -42,8 +51,8 @@ def prepare_data(sc):
     print (lines.first())
     print("共計：" + str(lines.count()) + "筆")
     labelpointRDD = lines.map(lambda r: LabeledPoint(extract_label(r), extract_features(r)))
-    print labelpointRDD.first()
-    (trainData, validationData,testData) = labelpointRDD.randomSplit([8, 1, 1])
+    print (labelpointRDD.first())
+    (trainData, validationData,testData) = labelpointRDD.randomSplit([5, 0, 5])
     print("將資料分trainData:" + str(trainData.count()) +
           "validationData:" + str(validationData.count()) +
           "testData:" + str(testData.count()))
@@ -71,8 +80,11 @@ def trainEvaluateModel(trainData):
 def evaluateModel(model, validationData):
     score = model.predict(validationData.map(lambda p: p.features))
     '''labelsAndPredictions = validationData.map(lambda p: p.label).zip(score)'''
-    labelsAndPreds = validationData.map(lambda p: (p.label, model.predict(p.features)))
-    testErr = labelsAndPreds.filter(lambda (v, p): v != p).count() / float(validationData.count())
+    labelsAndPreds = validationData.map(lambda p: (p.label, float(model.predict(p.features))))
+    metrics = BinaryClassificationMetrics(labelsAndPreds)
+    print("Area under PR = %s" % metrics.areaUnderPR)
+    print("Area under ROC = %s" % metrics.areaUnderROC)
+    testErr = labelsAndPreds.filter(lambda seq: seq[0] != seq[1]).count() / float(validationData.count())
     print('Test Error = ' + str(testErr))
 ''' print('Learned classification tree model:')
     print(model.toDebugString()) '''
@@ -108,9 +120,12 @@ if __name__ == "__main__":
     trainData.persist()
     validationData.persist()
     testData.persist()
-    data = sc.textFile("/Users/yangminglin/data/xaa.csv")
     model = trainEvaluateModel(trainData)
+    model.setThreshold(0.3)
+    #model.save(sc)
     evaluateModel(model, testData)
-    model.clearThreshold()
-    print(model.intercept)
+    print(model.threshold)
+    print('截距 = ' + str(model.intercept))
+    print('係數 = ' + str(model.weights))
+    print('特徵數 = ' + str(model.numFeatures))
     predictData(sc, model)
