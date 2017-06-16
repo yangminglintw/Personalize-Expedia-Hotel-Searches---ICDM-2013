@@ -10,6 +10,9 @@ from pyspark.mllib.regression import LabeledPoint
 from pyspark.mllib.evaluation import RegressionMetrics
 from pyspark.mllib.evaluation import BinaryClassificationMetrics
 from pyspark.mllib.util import MLUtils
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
+import random
 
 
 def SetLogger(sc):
@@ -79,13 +82,19 @@ def trainEvaluateModel(trainData):
 
 def evaluateModel(model, validationData):
     score = model.predict(validationData.map(lambda p: p.features))
+    print(score.collect())
     '''labelsAndPredictions = validationData.map(lambda p: p.label).zip(score)'''
     labelsAndPreds = validationData.map(lambda p: (p.label, float(model.predict(p.features))))
+    labelsAndPreds_label = validationData.map(lambda p: (p.label))
+    #labelsAndPreds_prd = validationData.map(lambda p: (float(model.predict(p.features))))
+    print(labelsAndPreds_label.collect())
+    #print(labelsAndPreds_prd.collect())
     metrics = BinaryClassificationMetrics(labelsAndPreds)
     print("Area under PR = %s" % metrics.areaUnderPR)
     print("Area under ROC = %s" % metrics.areaUnderROC)
     testErr = labelsAndPreds.filter(lambda seq: seq[0] != seq[1]).count() / float(validationData.count())
     print('Test Error = ' + str(testErr))
+    
 ''' print('Learned classification tree model:')
     print(model.toDebugString()) '''
 
@@ -121,7 +130,7 @@ if __name__ == "__main__":
     validationData.persist()
     testData.persist()
     model = trainEvaluateModel(trainData)
-    model.setThreshold(0.3)
+    model.setThreshold(0.1)
     #model.save(sc)
     evaluateModel(model, testData)
     print(model.threshold)
@@ -129,3 +138,17 @@ if __name__ == "__main__":
     print('係數 = ' + str(model.weights))
     print('特徵數 = ' + str(model.numFeatures))
     predictData(sc, model)
+    actual = [1,1,1,0,0,0]
+    predictions = [0.9,0.9,0.9,0.1,0.1,0.1]
+    false_positive_rate, true_positive_rate, thresholds = roc_curve(actual, predictions)
+    roc_auc = auc(false_positive_rate, true_positive_rate)
+    plt.title('Receiver Operating Characteristic')
+    plt.plot(false_positive_rate, true_positive_rate, 'b',
+    label='AUC = %0.2f'% roc_auc)
+    plt.legend(loc='lower right')
+    plt.plot([0,1],[0,1],'r--')
+    plt.xlim([-0.1,1.2])
+    plt.ylim([-0.1,1.2])
+    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    plt.show()
