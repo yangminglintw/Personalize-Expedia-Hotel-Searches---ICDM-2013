@@ -3,7 +3,7 @@ Sys.setenv(SPARK_HOME = "/Users/yangminglin/spark-2.1.0-bin-hadoop2.7")
 library(SparkR)
 sparkR.session(master="local[*]")
 
-data <- read.csv("xaa.csv")
+data <- read.csv("data_half.csv")
 ddf <- createDataFrame(data)
 
 data2 <- read.csv("hour.csv")
@@ -16,7 +16,7 @@ test_ddf <- except(ddf, training_ddf)
 
 model <- spark.randomForest(training_ddf, click_bool ~ ., type="classification", seed=seed,numTrees = 10)
 
-model <- spark.logit(training_ddf, gross_bookings_usd ~ price_usd + srch_length_of_stay + booking_bool , maxIter = 10, regParam = 0.3, elasticNetParam = 0.8)
+model <- spark.logit(training_ddf, booking_bool ~ . , maxIter = 10, regParam = 0.3, elasticNetParam = 0.8)
 
 predictions <- predict(model, training_ddf)
 prediction_df <- collect(select(predictions, "gross_bookings_usd", "prediction"))
