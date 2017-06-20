@@ -1,14 +1,16 @@
-d <- read.csv("train.csv",na.strings='NULL')
-d <- read.csv("xaa.csv",na.strings='NULL')
+data <- read.csv("train.csv",na.strings='NULL')
+d_ <- read.csv("xaa.csv",na.strings='NULL')
 
-data <- d[,-3:-51]
-data$date <-substr(data[,2],0,10) 
-data$gross_bookings_usd[is.na(data$gross_bookings_usd)] <- 0
+#data <- d[,-3:-51]
+data$date_time <-substr(data[,2],0,10) 
+data[is.na(data)] <- 0
+
+
 library(dplyr)
-group_by(data, date) %>% 
-  summarise(sum=sum(gross_bookings_usd)) -> tmp
+group_by(data, date_time) %>% 
+  summarise(price_usd = mean(price_usd)) -> tmp
 
-write.csv(tmp, file="tmp.csv", row.names = F, quote = F,fileEncoding = "big5")
+write.csv(tmp, file="price_usd.csv", row.names = F, quote = F,fileEncoding = "big5")
 
 library(ggplot2)
 library(dplyr)
